@@ -21,6 +21,9 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
+parser.add_argument('--p', default=50, type=int, help='Prune percentage')
+parser.add_argument('--rop', action='store_true', help='use rop pruning')
+parser.add_argument('--layer' , action='store_true', help='use layer pruning')
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -91,8 +94,12 @@ optimizer = optim.SGD(net.parameters(), lr=args.lr,
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
 #Pruning
-prune_percentages = [10, 20, 30, 40, 50, 60, 70]
-prune_epochs = [10, 20, 30, 40, 50, 60, 70]
+if args.p:
+	print("Prune percent: {}".format(args.p))
+	
+	
+prune_percentages = np.arange(10, args.p+10, 10) #[10, 20, 30, 40, 50, 60, 70]
+prune_epochs = np.arange(10, args.p+10, 10) #[10, 20, 30, 40, 50, 60, 70]
 curr_prune_stage = 0
 
 
@@ -122,8 +129,10 @@ def train(epoch):
 
     if epoch in prune_epochs:
         print('Pruning Stage {}'.format(curr_prune_stage))
-        smallest_magnitude_pruning(net, prune_percentages[curr_prune_stage])
-        #filter_pruning(net, prune_percentages[curr_prune_stage])
+        if args.layer:
+            smallest_magnitude_pruning(net, prune_percentages[curr_prune_stage])
+        if args.rop:
+            filter_pruning(net, prune_percentages[curr_prune_stage])
         curr_prune_stage += 1
 
 
@@ -177,4 +186,8 @@ for i, layer in enumerate(get_sparse_conv2d_layers(net)):
             sparsity = 100.0 * (1 - (num_nonzero / num_total))
             print('Layer {} ({}): {}% sparse'.format(i, layer.weight.shape,
                                                      sparsity))
-print("Acc: {}%".format(best_acc))
+
+if args.rop:
+     print("{}% ROP pruning Acc: {}%".format(args.p, best_acc))
+if args.layer:
+     print("{}% layer pruning Acc: {}%".format(args.p, best_acc))
