@@ -24,6 +24,7 @@ parser.add_argument('--resume', '-r', action='store_true',
 parser.add_argument('--p', default=50, type=int, help='Prune percentage')
 parser.add_argument('--rop', action='store_true', help='use rop pruning')
 parser.add_argument('--layer' , action='store_true', help='use layer pruning')
+parser.add_argument('--filter', action ='store_true', help='prune entire filters')
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -99,7 +100,8 @@ if args.p:
 	
 	
 prune_percentages = np.arange(10, args.p+10, 10) #[10, 20, 30, 40, 50, 60, 70]
-prune_epochs = np.arange(10, args.p+10, 10) #[10, 20, 30, 40, 50, 60, 70]
+prune_epochs = np.arange(10, args.p+10, 10)
+#prune_epochs[0] = 0 # = [10, 20, 30, 40, 50, 60, 70]
 curr_prune_stage = 0
 
 
@@ -133,6 +135,8 @@ def train(epoch):
             smallest_magnitude_pruning(net, prune_percentages[curr_prune_stage])
         if args.rop:
             filter_pruning(net, prune_percentages[curr_prune_stage])
+        if args.filter:
+            struct_pruning(net, prune_percentages[curr_prune_stage])
         curr_prune_stage += 1
 
 
@@ -191,3 +195,7 @@ if args.rop:
      print("{}% ROP pruning Acc: {}%".format(args.p, best_acc))
 if args.layer:
      print("{}% layer pruning Acc: {}%".format(args.p, best_acc))
+if args.filter:
+    print("{}% filter pruning Acc: {}%".format(args.p, best_acc))
+else:
+     print("Acc: {}%".format(best_acc))

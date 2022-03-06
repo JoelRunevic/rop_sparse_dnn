@@ -106,3 +106,56 @@ def filter_pruning(net, prune_percent, verbose=True):
             sparsity = 100.0 * (1 - (num_nonzero / num_total))
             print('Layer {} ({}): {}% sparse'.format(i, layer.weight.shape,
                                                      sparsity))
+def struct_group_pruning(filter, prune_percent):
+  filters = filter.sum(axis=1)
+  thresh = np.percentile(filters, prune_percent)
+  indx = filter.sum(axis=1) < thresh
+  return indx
+
+def struct_pruning(net, prune_percent, verbose=True):
+    for i, layer in enumerate(get_sparse_conv2d_layers(net)):
+        num_nonzero = layer._mask.sum().item()
+        num_total = len(layer._mask)
+        num_prune = round(num_total * prune_percent)
+        sparsity = 100.0 * (1 - (num_nonzero / num_total))
+        print(num_prune, num_total, prune_percent)
+
+        
+        # Find upperbound of weights to be pruned
+        #weight_npy = np.abs(layer._weight.data.cpu().numpy())
+        #thresh = np.percentile(weight_npy.flatten(), prune_percent)
+        # Get indexs of all weights to be zeroed and then zero them
+        #idxs = weight_npy < thresh
+        weight_npy = np.abs(layer.weight.cpu().detach().numpy())
+        weight_npy = weight_npy.reshape(weight_npy.shape[0], weight_npy.shape[1], -1)
+        idxs = np.zeros_like(weight_npy)
+        #print(weight_npy.shape)
+        #print(layer.weight.shape)
+        #for j in range(0, weight_npy.shape[0]):
+            #for k in range(0, weight_npy.shape[1]):
+                #idxs[j,k] = get_prune_group(weight_npy[j,k,:], prune_percent)
+        #idxs = np.apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
+        #idxs = parallel_apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
+        #print(idxs)
+        for j in range (0, weight_npy.shape[0]):
+            #print(idxs.shape)
+            #print(struct_group_pruning(weight_npy[i], prune_percent))
+            idxs[j][struct_group_pruning(weight_npy[i], prune_percent)] = True
+        #print(idxs)
+        idxs = idxs > 0.5
+        #print(idxs)
+        #print(idxs.reshape(weight_npy.shape[0],weight_npy.shape[1], weight_npy.shape[2], weight_npy.shape[3]))
+        layer._mask.data[idxs.flatten()] = 0
+        
+        #print(idxs.flatten()[0:18])
+        #print(idxs)
+        #print(layer.mask.reshape(weight_npy.shape[0], weight_npy.shape[1], -1))
+        #print(layer.mask.shape)
+        #print(layer.weight.cpu().detach().numpy()[0][0])
+
+        if verbose:
+            num_nonzero = layer._mask.sum().item()
+            #print(num_nonzero, num_total)
+            sparsity = 100.0 * (1 - (num_nonzero / num_total))
+            print('Layer {} ({}): {}% sparse'.format(i, layer.weight.shape,
+                                                     sparsity))
