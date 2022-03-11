@@ -107,9 +107,11 @@ def filter_pruning(net, prune_percent, verbose=True):
             print('Layer {} ({}): {}% sparse'.format(i, layer.weight.shape,
                                                      sparsity))
 def struct_group_pruning(filter, prune_percent):
-  filters = filter.sum(axis=1)
+  #filters = filter.sum(axis=1)
+  filters = np.amax(filter, axis=1)
   thresh = np.percentile(filters, prune_percent)
-  indx = filter.sum(axis=1) < thresh
+  #indx = filter.sum(axis=1) < thresh
+  indx = np.amax(filter, axis=1) < thresh
   return indx
 
 def struct_pruning(net, prune_percent, verbose=True):
