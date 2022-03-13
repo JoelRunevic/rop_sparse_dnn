@@ -173,7 +173,13 @@ def test(epoch):
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/ckpt.pth')
+        #torch.save(state, './checkpoint/ckpt.pth')
+        if args.rop:
+             torch.save(state, './checkpoint/ckpt_rop_{}.pth'.format(args.p))
+        if args.layer:
+             torch.save(state, './checkpoint/ckpt_layer_{}.pth'.format(args.p))
+        if args.filter:
+             torch.save(state, './checkpoint/ckpt_filter_{}.pth'.format(args.p))
         best_acc = acc
 
 for epoch in range(start_epoch, start_epoch+200):
