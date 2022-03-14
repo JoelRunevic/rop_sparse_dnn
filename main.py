@@ -25,6 +25,9 @@ parser.add_argument('--p', default=50, type=int, help='Prune percentage')
 parser.add_argument('--rop', action='store_true', help='use rop pruning')
 parser.add_argument('--layer' , action='store_true', help='use layer pruning')
 parser.add_argument('--filter', action ='store_true', help='prune entire filters')
+parser.add_argument('--cifar100', action ='store_true', help='use cifar10')
+parser.add_argument('--net', default='resnet18',  help='network')
+
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -45,23 +48,42 @@ transform_test = transforms.Compose([
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
-trainset = torchvision.datasets.CIFAR10(
-    root='./data', train=True, download=True, transform=transform_train)
-trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=128, shuffle=True, num_workers=2)
+if not args.cifar100:
+    trainset = torchvision.datasets.CIFAR10(
+        root='./data', train=True, download=True, transform=transform_train)
+    trainloader = torch.utils.data.DataLoader(
+        trainset, batch_size=128, shuffle=True, num_workers=2)
 
-testset = torchvision.datasets.CIFAR10(
-    root='./data', train=False, download=True, transform=transform_test)
-testloader = torch.utils.data.DataLoader(
-    testset, batch_size=100, shuffle=False, num_workers=2)
+    testset = torchvision.datasets.CIFAR10(
+        root='./data', train=False, download=True, transform=transform_test)
+    testloader = torch.utils.data.DataLoader(
+        testset, batch_size=100, shuffle=False, num_workers=2)
 
-classes = ('plane', 'car', 'bird', 'cat', 'deer',
-           'dog', 'frog', 'horse', 'ship', 'truck')
+    #classes = ('plane', 'car', 'bird', 'cat', 'deer',
+    #           'dog', 'frog', 'horse', 'ship', 'truck')
+    num_classes = 10
+else:
+    trainset = torchvision.datasets.CIFAR100(
+        root='./data', train=True, download=True, transform=transform_train)
+    trainloader = torch.utils.data.DataLoader(
+        trainset, batch_size=128, shuffle=True, num_workers=2)
 
+    testset = torchvision.datasets.CIFAR100(
+        root='./data', train=False, download=True, transform=transform_test)
+    testloader = torch.utils.data.DataLoader(
+        testset, batch_size=100, shuffle=False, num_workers=2)
+
+    #classes = ('plane', 'car', 'bird', 'cat', 'deer',
+    #           'dog', 'frog', 'horse', 'ship', 'truck')
+    num_classes = 100
 # Model
 print('==> Building model..')
 # net = VGG('VGG19')
-net = ResNet18_sparse()
+print(args.net, num_classes)
+if args.net in "resnet18":
+    net = ResNet18_sparse(num_classes = num_classes)
+elif args.net == "resnet50":
+    net = ResNet50_sparse(num_classes = num_classes)
 # net = PreActResNet18()
 # net = GoogLeNet()
 # net = DenseNet121()
@@ -174,12 +196,18 @@ def test(epoch):
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
         #torch.save(state, './checkpoint/ckpt.pth')
+        if args.cifar100:
+            cifar="CIFAR100"
+        else:
+            cifar="CIFAR10"
         if args.rop:
-             torch.save(state, './checkpoint/ckpt_rop_{}.pth'.format(args.p))
+             torch.save(state, './checkpoint/ckpt_{}_{}_rop_{}.pth'.format(args.net, cifar, args.p))
         if args.layer:
-             torch.save(state, './checkpoint/ckpt_layer_{}.pth'.format(args.p))
+             torch.save(state, './checkpoint/ckpt_{}_{}_layer_{}.pth'.format(args.net, cifar, args.p))
         if args.filter:
-             torch.save(state, './checkpoint/ckpt_filter_{}.pth'.format(args.p))
+             torch.save(state, './checkpoint/ckpt_{}_{}_filter_{}.pth'.format(args.net, cifar, args.p))
+        else:
+            torch.save(state, './checkpoint/ckpt_{}_{}_no_pruning.pth'.format(args.net, cifar))
         best_acc = acc
 
 for epoch in range(start_epoch, start_epoch+200):
@@ -197,11 +225,15 @@ for i, layer in enumerate(get_sparse_conv2d_layers(net)):
             print('Layer {} ({}): {}% sparse'.format(i, layer.weight.shape,
                                                      sparsity))
 
-if args.rop:
-     print("{}% ROP pruning Acc: {}%".format(args.p, best_acc))
-if args.layer:
-     print("{}% layer pruning Acc: {}%".format(args.p, best_acc))
-if args.filter:
-    print("{}% filter pruning Acc: {}%".format(args.p, best_acc))
+if args.cifar100:
+    cifar="CIFAR100"
 else:
-     print("Acc: {}%".format(best_acc))
+    cifar="CIFAR10"
+if args.rop:
+     print("{} {}% ROP pruning on {}  Acc: {}%".format(args.net, args.p, cifar, best_acc))
+if args.layer:
+     print("{} {}% layer pruning on {} Acc: {}%".format(args.net,args.p, cifar, best_acc))
+if args.filter:
+    print("{} {}% filter pruning on {} Acc: {}%".format(args.net, args.p, cifar, best_acc))
+else:
+     print("{} on {} Acc: {}%".format(args.net, cifar, best_acc))

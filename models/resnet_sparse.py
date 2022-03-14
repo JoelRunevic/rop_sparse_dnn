@@ -135,13 +135,13 @@ class Bottleneck(nn.Module):
 
     def __init__(self, in_planes, planes, stride=1):
         super(Bottleneck, self).__init__()
-        self.conv1 = nn.sparse_conv_block(in_planes, planes, kernel_size=1, bias=False)
+        self.conv1 = SparseConv2d(in_planes, planes, kernel_size=1, padding = 0, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
+        self.conv2 = SparseConv2d(planes, planes, kernel_size=3,
                                stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion *
-                               planes, kernel_size=1, bias=False)
+        self.conv3 = SparseConv2d(planes, self.expansion *
+                               planes, kernel_size=1,  padding = 0, bias=False)
         self.bn3 = nn.BatchNorm2d(self.expansion*planes)
 
         self.shortcut = nn.Sequential()
@@ -195,8 +195,8 @@ class ResNet(nn.Module):
         return out
 
 
-def ResNet18_sparse():
-    return ResNet(BasicBlock, [2, 2, 2, 2])
+def ResNet18_sparse(num_classes=10):
+    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes)
     #return ResNet(sparse_conv_block, [2,2,2,2])
 
 
@@ -204,8 +204,8 @@ def ResNet18_sparse():
 #    return ResNet(BasicBlock, [3, 4, 6, 3])
 
 
-#def ResNet50():
-#    return ResNet(Bottleneck, [3, 4, 6, 3])
+def ResNet50_sparse(num_classes=10):
+    return ResNet(Bottleneck, [3, 4, 6, 3], num_classes)
 
 
 #def ResNet101():
