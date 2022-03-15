@@ -2,6 +2,7 @@ import numpy as np
 from models import *
 
 from parralel_axis import *
+from utils import *
 
 def get_sparse_conv2d_layers(net):
     '''
@@ -57,7 +58,7 @@ def get_prune_group(row, prune_percent):
     idxs = row < thresh
     return idxs
         
-def filter_pruning(net, prune_percent, verbose=True):
+def rop_pruning(net, prune_percent, verbose=True):
     
     for i, layer in enumerate(get_sparse_conv2d_layers(net)):
         num_nonzero = layer._mask.sum().item()
@@ -89,16 +90,21 @@ def filter_pruning(net, prune_percent, verbose=True):
             #for k in range(0, weight_npy.shape[1]):
                 #idxs[j,k] = get_prune_group(weight_npy[j,k,:], prune_percent)
         #idxs = np.apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
-        idxs = parallel_apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
-
+        if weight_npy.shape[-1] == 1:
+            group_size = get_closest_split(weight_npy.shape[0] * weight_npy.shape[1], 9)
+            weights = weight_npy.reshape(weight_npy.shape[0], weight_npy.shape[1]) #np.concatenate(np.split(weight_npy, group_size, 0))
+            idxs = parallel_apply_along_axis(get_prune_group, 0, weights, prune_percent)
+            idxs = idxs.reshape(weight_npy.shape)
+        else:
+            idxs = parallel_apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
         #print(idxs)
         #idxs = idxs > 0.5 
         layer._mask.data[idxs.flatten()] = 0
         #print(idxs[0,0])
         #print(idxs.flatten()[0:18])
-        print(idxs[0][0])
-        print(layer.mask[0][0])
-        print(layer.weight.cpu().detach().numpy()[0][0])
+        #print(idxs[0][0])
+        #print(layer.mask[0][0])
+        #print(layer.weight.cpu().detach().numpy()[0][0])
 
         if verbose:
             num_nonzero = layer._mask.sum().item()

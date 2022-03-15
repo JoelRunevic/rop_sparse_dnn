@@ -23,7 +23,7 @@ def parallel_apply_along_axis(func1d, axis, arr, *args, **kwargs):
     # Freeing the workers:                                                            
     pool.close()
     pool.join()
-    print (individual_results)
+    #print (individual_results)
     return np.concatenate(individual_results)
 
 def unpacking_apply_along_axis(all_args):

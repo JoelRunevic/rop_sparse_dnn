@@ -8,6 +8,7 @@ import sys
 import time
 import math
 
+import numpy as np
 import torch.nn as nn
 import torch.nn.init as init
 
@@ -122,3 +123,22 @@ def format_time(seconds):
     if f == '':
         f = '0ms'
     return f
+
+
+def getDivisors(n, res=None) : 
+    res = res or []
+    i = 1
+    while i <= n : 
+        if (n % i==0) : 
+            res.append(i), 
+        i = i + 1
+    return res
+
+def get_closest_split(n, close_to=1440):
+    all_divisors = getDivisors(n)
+    for ix, val in enumerate(all_divisors):
+        if close_to < val:
+            if ix == 0: return val
+            if (val-close_to)>(close_to - all_divisors[ix-1]):
+                return all_divisors[ix-1]
+            return val
