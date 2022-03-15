@@ -92,7 +92,8 @@ def rop_pruning(net, prune_percent, verbose=True):
         #idxs = np.apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
         if weight_npy.shape[-1] == 1:
             group_size = get_closest_split(weight_npy.shape[0] * weight_npy.shape[1], 9)
-            weights = weight_npy.reshape(weight_npy.shape[0], weight_npy.shape[1]) #np.concatenate(np.split(weight_npy, group_size, 0))
+            #weights = weight_npy.reshape(weight_npy.shape[0], weight_npy.shape[1]) #np.concatenate(np.split(weight_npy, group_size, 0))
+            weights = weight_npy.flatten().reshape([-1, group_size])
             idxs = parallel_apply_along_axis(get_prune_group, 0, weights, prune_percent)
             idxs = idxs.reshape(weight_npy.shape)
         else:
