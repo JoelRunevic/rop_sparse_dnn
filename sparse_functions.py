@@ -83,7 +83,7 @@ def rop_pruning(net, prune_percent, verbose=True):
         #idxs = weight_npy < thresh
         weight_npy = np.abs(layer.weight.cpu().detach().numpy())
         weight_npy = weight_npy.reshape(weight_npy.shape[0], weight_npy.shape[1], -1)
-        idxs = np.empty_like(weight_npy)
+        #idxs = np.empty_like(weight_npy)
         #print(weight_npy.shape)
         #print(layer.weight.shape)
         #for j in range(0, weight_npy.shape[0]):
@@ -94,7 +94,7 @@ def rop_pruning(net, prune_percent, verbose=True):
             group_size = get_closest_split(weight_npy.shape[0] * weight_npy.shape[1], 9)
             #weights = weight_npy.reshape(weight_npy.shape[0], weight_npy.shape[1]) #np.concatenate(np.split(weight_npy, group_size, 0))
             weights = weight_npy.flatten().reshape([-1, group_size])
-            idxs = parallel_apply_along_axis(get_prune_group, 0, weights, prune_percent)
+            idxs = np.array([get_prune_group(row, prune_percent) for row in weights]) #parallel_apply_along_axis(get_prune_group, 0, weights, prune_percent)
             idxs = idxs.reshape(weight_npy.shape)
         else:
             idxs = parallel_apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
