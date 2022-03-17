@@ -63,7 +63,7 @@ for i, layer in enumerate(get_sparse_conv2d_layers(net)):
     content = f.read()
     f.seek(0)
     #x = "M: {} K: {} N {}".format(weight_mm.shape[1], weight_mm.shape[0], int(M))
-    x = "M: {} K: {} N {}".format(int(M), weight_mm.shape[1], weight_mm.shape[0])
+    x = "M: {} K: {} N {}".format(int(M), weight_mm.shape[0], weight_mm.shape[1])
     f.write(x + '\n' + content)
     f.close()
 
