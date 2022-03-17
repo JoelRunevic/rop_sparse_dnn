@@ -57,7 +57,8 @@ def get_prune_group(row, prune_percent):
     # Get indexs of all weights to be zeroed and then zero them
     idxs = row < thresh
     return idxs
-        
+
+
 def rop_pruning(net, prune_percent, verbose=True):
     
     for i, layer in enumerate(get_sparse_conv2d_layers(net)):
@@ -81,18 +82,30 @@ def rop_pruning(net, prune_percent, verbose=True):
             #for k in range(0, weight_npy.shape[1]):
                 #idxs[j,k] = get_prune_group(weight_npy[j,k,:], prune_percent)
         #idxs = np.apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
+        within_filter = False
         if weight_npy.shape[-1] == 1:
             group_size = get_closest_split(weight_npy.shape[0] * weight_npy.shape[1], 9)
             #weights = weight_npy.reshape(weight_npy.shape[0], weight_npy.shape[1]) #np.concatenate(np.split(weight_npy, group_size, 0))
             weights = weight_npy.flatten().reshape([-1, group_size])
             idxs = np.array([get_prune_group(row, prune_percent) for row in weights]) #parallel_apply_along_axis(get_prune_group, 0, weights, prune_percent)
             idxs = idxs.reshape(weight_npy.shape)
-        else:
-            #idxs = parallel_apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
+        elif within_filter:
             group_size = get_closest_split(weight_npy.shape[2] * weight_npy.shape[1], 18)
             weights = weight_npy.flatten().reshape([-1, group_size])
             idxs = np.array([get_prune_group(row, prune_percent) for row in weights]) 
             idxs = idxs.reshape(weight_npy.shape)
+        else:
+            group_size = get_closest_split(weight_npy.shape[0], 18)
+            weights = weight_npy.reshape(weight_npy.shape[0], -1).T
+            #print(weights[0])
+            weights = weights.flatten().reshape([-1, group_size])
+            #print(weights[0])
+            #idxs = np.array([get_prune_group(row, prune_percent) for row in weights])
+            idxs = parallel_apply_along_axis(get_prune_group, 1, weights, prune_percent)
+            idxs = idxs.flatten().reshape(-1, weight_npy.shape[0]).T
+            idxs = idxs.reshape(weight_npy.shape)
+            #with np.printoptions(threshold=np.inf):
+                #print(idxs.reshape(weight_npy.shape[0], -1).T)
         #print(idxs)
         #idxs = idxs > 0.5 
         layer._mask.data[idxs.flatten()] = 0
@@ -102,12 +115,15 @@ def rop_pruning(net, prune_percent, verbose=True):
         #print(layer.mask[0][0])
         #print(layer.weight.cpu().detach().numpy()[0][0])
 
+
         if verbose:
             num_nonzero = layer._mask.sum().item()
             print(num_nonzero, num_total)
             sparsity = 100.0 * (1 - (num_nonzero / num_total))
             print('Layer {} ({}): {}% sparse'.format(i, layer.weight.shape,
                                                      sparsity))
+
+
 def struct_group_pruning(filter, prune_percent):
   #filters = filter.sum(axis=1)
   filters = np.amax(filter, axis=1)
@@ -115,6 +131,7 @@ def struct_group_pruning(filter, prune_percent):
   #indx = filter.sum(axis=1) < thresh
   indx = np.amax(filter, axis=1) < thresh
   return indx
+
 
 def struct_pruning(net, prune_percent, verbose=True):
     for i, layer in enumerate(get_sparse_conv2d_layers(net)):
