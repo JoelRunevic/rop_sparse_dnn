@@ -66,16 +66,7 @@ def rop_pruning(net, prune_percent, verbose=True):
         num_prune = round(num_total * prune_percent)
         sparsity = 100.0 * (1 - (num_nonzero / num_total))
         print(num_prune, num_total, prune_percent)
-        
-        # PART 3.3: Implement pruning by settings elements in layer._mask
-        #           to zero corresponding to the smallest magnitude elements
-        #           in layer._weight. This must be implement in a way that 
-        #           allows the function to be called multiple times during the
-        #           training phase in order to make the weights progressively
-        #           sparser over time. Note: to update variable such as
-        #           layer._mask and layer._weight, do the following:
-        #           layer._mask.data[idx] = 0
-        
+                
         # Find upperbound of weights to be pruned
         #weight_npy = np.abs(layer._weight.data.cpu().numpy())
         #thresh = np.percentile(weight_npy.flatten(), prune_percent)
@@ -97,7 +88,11 @@ def rop_pruning(net, prune_percent, verbose=True):
             idxs = np.array([get_prune_group(row, prune_percent) for row in weights]) #parallel_apply_along_axis(get_prune_group, 0, weights, prune_percent)
             idxs = idxs.reshape(weight_npy.shape)
         else:
-            idxs = parallel_apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
+            #idxs = parallel_apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
+            group_size = get_closest_split(weight_npy.shape[2] * weight_npy.shape[1], 18)
+            weights = weight_npy.flatten().reshape([-1, group_size])
+            idxs = np.array([get_prune_group(row, prune_percent) for row in weights]) 
+            idxs = idxs.reshape(weight_npy.shape)
         #print(idxs)
         #idxs = idxs > 0.5 
         layer._mask.data[idxs.flatten()] = 0
@@ -129,23 +124,9 @@ def struct_pruning(net, prune_percent, verbose=True):
         sparsity = 100.0 * (1 - (num_nonzero / num_total))
         print(num_prune, num_total, prune_percent)
 
-        
-        # Find upperbound of weights to be pruned
-        #weight_npy = np.abs(layer._weight.data.cpu().numpy())
-        #thresh = np.percentile(weight_npy.flatten(), prune_percent)
-        # Get indexs of all weights to be zeroed and then zero them
-        #idxs = weight_npy < thresh
         weight_npy = np.abs(layer.weight.cpu().detach().numpy())
         weight_npy = weight_npy.reshape(weight_npy.shape[0], weight_npy.shape[1], -1)
         idxs = np.zeros_like(weight_npy)
-        #print(weight_npy.shape)
-        #print(layer.weight.shape)
-        #for j in range(0, weight_npy.shape[0]):
-            #for k in range(0, weight_npy.shape[1]):
-                #idxs[j,k] = get_prune_group(weight_npy[j,k,:], prune_percent)
-        #idxs = np.apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
-        #idxs = parallel_apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
-        #print(idxs)
         for j in range (0, weight_npy.shape[0]):
             #print(idxs.shape)
             #print(struct_group_pruning(weight_npy[i], prune_percent))
@@ -156,12 +137,6 @@ def struct_pruning(net, prune_percent, verbose=True):
         #print(idxs.reshape(weight_npy.shape[0],weight_npy.shape[1], weight_npy.shape[2], weight_npy.shape[3]))
         layer._mask.data[idxs.flatten()] = 0
         
-        #print(idxs.flatten()[0:18])
-        #print(idxs)
-        #print(layer.mask.reshape(weight_npy.shape[0], weight_npy.shape[1], -1))
-        #print(layer.mask.shape)
-        #print(layer.weight.cpu().detach().numpy()[0][0])
-
         if verbose:
             num_nonzero = layer._mask.sum().item()
             #print(num_nonzero, num_total)
