@@ -142,3 +142,9 @@ def get_closest_split(n, close_to=1440):
             if (val-close_to)>(close_to - all_divisors[ix-1]):
                 return all_divisors[ix-1]
             return val
+
+def rounddown(x):
+    return int(math.floor(x / 10.0)) * 10
+
+def roundup(x):
+    return int(math.ceil(x / 10.0)) * 10

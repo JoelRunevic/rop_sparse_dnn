@@ -120,9 +120,14 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 if args.p:
 	print("Prune percent: {}".format(args.p))
 	
-	
-prune_percentages = np.arange(10, args.p+10, 10) #[10, 20, 30, 40, 50, 60, 70]
-prune_epochs = np.arange(10, args.p+10, 10)
+prune_percentages = np.arange(10, rounddown(args.p)+10, 10)
+prune_epochs = np.arange(10, rounddown(args.p)+10, 10)
+#handle last pruning stage
+if args.p%10 != 0:
+  prune_percentages = np.append(prune_percentages, args.p)#[10, 20, 30, 40, 50, 60, 70]                          
+  prune_epochs = np.append(prune_epochs, roundup(args.p))	
+#prune_percentages = np.arange(10, args.p+10, 10) #[10, 20, 30, 40, 50, 60, 70]
+#prune_epochs = np.arange(10, args.p+10, 10)
 #prune_epochs[0] = 0 # = [10, 20, 30, 40, 50, 60, 70]
 curr_prune_stage = 0
 
