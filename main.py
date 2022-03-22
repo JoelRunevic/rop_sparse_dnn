@@ -78,18 +78,20 @@ else:
     num_classes = 100
 # Model
 print('==> Building model..')
-# net = VGG('VGG19')
 print(args.net, num_classes)
 if args.net in "resnet18":
     net = ResNet18_sparse(num_classes = num_classes)
 elif args.net == "resnet50":
     net = ResNet50_sparse(num_classes = num_classes)
+elif args.net == "vgg19":
+    net = VGG_sparse('VGG19')
+elif args.net == "mobilenet":
+    net = MobileNetV2_sparse()
 # net = PreActResNet18()
 # net = GoogLeNet()
 # net = DenseNet121()
 # net = ResNeXt29_2x64d()
 # net = MobileNet()
-# net = MobileNetV2()
 # net = DPN92()
 # net = ShuffleNetG2()
 # net = SENet18()
@@ -130,6 +132,8 @@ if args.p%10 != 0:
 #prune_epochs = np.arange(10, args.p+10, 10)
 #prune_epochs[0] = 0 # = [10, 20, 30, 40, 50, 60, 70]
 curr_prune_stage = 0
+print(prune_epochs)
+print(prune_percentages)
 
 
 # Training

@@ -85,6 +85,9 @@ def rop_pruning(net, prune_percent, verbose=True):
         within_filter = False
         if True:
             group_size = get_closest_split(weight_npy.shape[0], 18)
+            if group_size is None:
+                # Handle very small filters
+                group_size = weight_npy.shape[0]
             weights = weight_npy.reshape(weight_npy.shape[0], -1).T
             #print(weights[0])
             weights = weights.flatten().reshape([-1, group_size])

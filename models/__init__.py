@@ -17,3 +17,5 @@ from .regnet import *
 from .dla_simple import *
 from .dla import *
 from .resnet_sparse import *
+from .vgg_sparse import *
+from .mobilenetv2_sparse import *
