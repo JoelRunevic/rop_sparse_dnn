@@ -165,7 +165,7 @@ def train(epoch):
         if args.layer:
             smallest_magnitude_pruning(net, prune_percentages[curr_prune_stage])
         if args.rop:
-            rop_pruning(net, prune_percentages[curr_prune_stage])
+            rop_pruning(net, prune_percentages[curr_prune_stage],  multi_prune= args.net == "mobilenet")
         if args.filter:
             struct_pruning(net, prune_percentages[curr_prune_stage])
         curr_prune_stage += 1

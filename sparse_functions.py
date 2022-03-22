@@ -59,7 +59,7 @@ def get_prune_group(row, prune_percent):
     return idxs
 
 
-def rop_pruning(net, prune_percent, verbose=True):
+def rop_pruning(net, prune_percent, verbose=True, multi_prune = False):
     
     for i, layer in enumerate(get_sparse_conv2d_layers(net)):
         num_nonzero = layer._mask.sum().item()
@@ -93,7 +93,10 @@ def rop_pruning(net, prune_percent, verbose=True):
             weights = weights.flatten().reshape([-1, group_size])
             #print(weights[0])
             #idxs = np.array([get_prune_group(row, prune_percent) for row in weights])
-            idxs = parallel_apply_along_axis(get_prune_group, 1, weights, prune_percent)
+            if multi_prune:
+                idxs = np.array([get_prune_group(row, prune_percent) for row in weights]) 
+            else:
+                idxs = parallel_apply_along_axis(get_prune_group, 1, weights, prune_percent)
             idxs = idxs.flatten().reshape(-1, weight_npy.shape[0]).T
             idxs = idxs.reshape(weight_npy.shape)
         elif weight_npy.shape[-1] == 1:
