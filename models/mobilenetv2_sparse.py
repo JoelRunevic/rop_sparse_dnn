@@ -79,7 +79,7 @@ class MobileNetV2_sparse(nn.Module):
 
 
 def test():
-    net = MobileNetV2_sparse()
+    net = MobileNetV2_sparse(num_classes= 100)
     x = torch.randn(2,3,32,32)
     y = net(x)
     print(y.size())
