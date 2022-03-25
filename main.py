@@ -84,7 +84,7 @@ if args.net in "resnet18":
 elif args.net == "resnet50":
     net = ResNet50_sparse(num_classes = num_classes)
 elif args.net == "vgg19":
-    net = VGG_sparse('VGG19')
+    net = VGG_sparse('VGG19', num_classes = num_classes)
 elif args.net == "mobilenet":
     net = MobileNetV2_sparse(num_classes = num_classes)
 # net = PreActResNet18()
