@@ -12,6 +12,8 @@ import torch.nn.functional as F
 
 import math
 from torch.autograd import Variable
+
+from .sparse_conv import *
 ## Code Cell 3.1
 
 def _make_pair(x):
@@ -19,7 +21,7 @@ def _make_pair(x):
         return x
     else:
         return (x, x)
-
+"""
 class SparseConv2d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,
                      padding=1, bias=False):
@@ -55,7 +57,7 @@ class SparseConv2d(nn.Module):
         m = self._mask.view(self.out_channels, self.in_channels,
                             self.kernel_size, self.kernel_size)
         return Variable(m, requires_grad=False)
-
+"""
 ## Code Cell 3.2
 
 def sparse_conv_block(in_channels, out_channels, kernel_size=3, stride=1,
