@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *.py~
+*.zip
 data/
 sparse_matrices/
 checkpoint/

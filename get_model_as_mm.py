@@ -31,6 +31,8 @@ if args.net in "resnet18":
     net = ResNet18_sparse(num_classes = num_classes)
 elif args.net == "resnet50":
     net = ResNet50_sparse(num_classes = num_classes)
+elif args.net == "mobilenet":
+    net = MobileNetV2_sparse(num_classes = num_classes)
 
 #net = ResNet18_sparse()
 
