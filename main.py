@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
-parser.add_argument('--p', default=50, type=int, help='Prune percentage')
+parser.add_argument('--p', default=0, type=int, help='Prune percentage')
 parser.add_argument('--rop', action='store_true', help='use rop pruning')
 parser.add_argument('--layer' , action='store_true', help='use layer pruning')
 parser.add_argument('--filter', action ='store_true', help='prune entire filters')
