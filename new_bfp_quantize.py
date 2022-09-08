@@ -24,7 +24,7 @@ def bfp_quantize_weights(w, exponent_bit, mantissa_bit, group_size):
 
     # reshape for groups
     weight_matrix_shape = weight_matrix.shape
-    print(weight_matrix_shape)
+    #print(weight_matrix_shape)
     weight_matrix = weight_matrix.reshape(-1, group_size)
         
     # Apply bfp quantization to groups
