@@ -12,6 +12,7 @@ import numpy as np
 from scipy.io import savemat
 import time
 
+from utils_bfp import *
 ################
 kExponentWidth = 4
 kMantissaWidth = 5 - 1  # total 5 bits, plus the left most 1 
@@ -423,3 +424,61 @@ class MyFun(InplaceFunction):
     
         return grad_input, grad_gamma, grad_bias, None, None, None, None, None
     
+
+
+def transform_activation_online(tensor, exponent, mantissa, chnl_group, is_3d=False):
+    # Online means the shared exponent is not fixed
+    #      it is deternmined during the inference
+    # Quantize the activation tensor along channel dimension
+    # Here we require the input tensor has the shape: [batch, channel, heigh, widht]
+    # chnl_group : Inditate the number of channel in one group, where one group shared the same exponenet
+    if is_3d is True:
+        orig_shape = tensor.shape
+        tensor = torch.reshape(tensor, (orig_shape[0], orig_shape[1]*orig_shape[2], orig_shape[3], orig_shape[4]))
+    shp = tensor.shape
+    if (chnl_group == -1):
+        chnl_group = shp[1]
+    number_of_blocks = math.ceil(shp[1]/chnl_group)
+    if shp[1] % chnl_group == 0:
+        # shp[1] is divisible by block size
+        # Therefore just one tensor will be created
+        tensor = torch.reshape(tensor, (shp[0], number_of_blocks, chnl_group*shp[2]*shp[3]))
+        tensor = bfp_quantize(tensor, exponent, mantissa, quant_dim=len(tensor.shape)-1)
+        tensor = torch.reshape(tensor, (shp[0], shp[1], shp[2], shp[3]))
+        if is_3d is True:
+            tensor = torch.reshape(tensor, (orig_shape[0], orig_shape[1], orig_shape[2], orig_shape[3], orig_shape[4]))
+        return tensor
+
+    else:
+        # shp[1] is not divisible by channel group
+        # Therefore two tensors will be created
+        #input('Channel is not divisible by channel group')
+
+        if number_of_blocks == 1:
+            # This means that the depth is less than the block size, so just one tensor will be created
+            tensor = torch.reshape(tensor, (shp[0], 1, shp[1]*shp[2]*shp[3]))
+            tensor = bfp_quantize(tensor, exponent, mantissa, quant_dim=len(tensor.shape)-1)
+            tensor = torch.reshape(tensor, (shp[0], shp[1], shp[2], shp[3]))
+            return tensor
+        else:
+            # Separate two part, tensor1 contain (number_of_blocks-1), tensor2 contain the rest
+            first_chnl = ((number_of_blocks-1)*chnl_group)
+            tensor1 = tensor[:, 0 : first_chnl, :, :]
+            t1_shp = tensor1.shape
+            tensor2 = tensor[:, first_chnl : shp[1], :, :]
+            t2_shp = tensor2.shape
+
+            # Perform quantization
+            tensor1 = torch.reshape(tensor1, (shp[0], number_of_blocks-1, chnl_group*shp[2]*shp[3]))
+            tensor2 = torch.reshape(tensor2, (shp[0], 1, (shp[1]-first_chnl)*shp[2]*shp[3]))
+            tensor1 = bfp_quantize(tensor1, exponent, mantissa, quant_dim=len(tensor1.shape)-1)
+            tensor2 = bfp_quantize(tensor2, exponent, mantissa, quant_dim=len(tensor2.shape)-1)
+
+            # Reshape and put back to original tensor
+            tensor1 = torch.reshape(tensor1, t1_shp)
+            tensor2 = torch.reshape(tensor2, t2_shp)
+            tensor[:, 0 : first_chnl, :, :] = tensor1 
+            tensor[:, first_chnl : shp[1], :, :] = tensor2
+            return tensor
+
+    return tensor

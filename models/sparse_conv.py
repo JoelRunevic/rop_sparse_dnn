@@ -5,6 +5,10 @@ import torch.nn.functional as F
 import math
 from torch.autograd import Variable
 
+import sys
+sys.path.append("/home/kunglab/training/rop_sparse_dnn")
+from BFP_quantized import *
+
 def _make_pair(x):
     if hasattr(x, '__len__'):
         return x
@@ -37,6 +41,11 @@ class SparseConv2d(nn.Module):
             return F.conv2d(x, self.weight, stride=self.stride,
                             padding=self.padding, groups=self.groups)
         else:
+            #qweight = BFP_quantize(self._weight, exponent_bit=4, mantissa_bit=8, group_size=4, category='WGT',  partition='channel', max_exp=0, min_exp=-15)
+            #qinput = BFP_quantize(x.cuda(), exponent_bit=4, mantissa_bit=8, group_size=1, category='ACT',  partition='channel', max_exp=0, min_exp=-15).to(torch.device("cpu"))
+            #qinput = qinput.cuda()
+            #return F.conv2d(qinput, self.weight, stride=self.stride,
+            #                padding=self.padding)
             return F.conv2d(x, self.weight, stride=self.stride,
                             padding=self.padding)
                     

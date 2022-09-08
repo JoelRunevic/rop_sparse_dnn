@@ -14,6 +14,7 @@ import scipy.io as sio
 from models import *
 from utils import progress_bar
 from BFP_quantized import *
+from new_bfp_quantize import *
 #from main import test
 
 from sparse_functions import *
@@ -176,7 +177,11 @@ def register_hook_recursive(net):
 
 def activation_quantization_hook(self, input):
 #    def hook(self, input):
-    input = BFP_quantize(input[0], exponent_bit=2, mantissa_bit=4, group_size=2, category='ACT',  partition='channel', max_exp=0, min_exp=-15)
+    #input = BFP_quantize(input[0], exponent_bit=2, mantissa_bit=4, group_size=1, category='ACT',  partition='channel', max_exp=0, min_exp=-15)
+    #print(input[0].shape)
+    input = transform_activation_online(input[0], 4, 8, 8, is_3d=False)
+    #print(input.shape)
+    #exit()
     return input
  
 
@@ -188,21 +193,22 @@ def register_hook(net):
         #kernel_sizes.append(layer.kernel_size)
         layer.register_forward_pre_hook(activation_quantization_hook)
         
-register_hook(net)
+#register_hook(net)
+
 #net.module.conv1.register_forward_hook(get_activation('conv1'))
 
 epoch = 0
 #print_layer_sparsity(net)
 #test(epoch)
 #Todo write activations are matrices
-#for layer in get_sparse_conv2d_layers(net):
-     #qweight = BFP_quantize(layer.weight, exponent_bit=4, mantissa_bit=8, group_size=4, category='WGT',  partition='channel', max_exp=0, min_exp=-15)
-
-    # print(qweight.size())
+for layer in get_sparse_conv2d_layers(net):
+    #qweight = BFP_quantize(layer.weight, exponent_bit=4, mantissa_bit=8, group_size=4, category='WGT',  partition='channel', max_exp=0, min_exp=-15)
+    qweight = bfp_quantize_weights(layer.weight.detach().cpu(), 4,4, 8)
+    #print(qweight.size())
     #print(layer.weight.size())
     #print(layer.weight)
     
-    #layer._weight = nn.Parameter(qweight)
+    layer._weight = nn.Parameter(qweight.float())
     
 
 
