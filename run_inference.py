@@ -155,5 +155,5 @@ epoch = 0
 print_layer_sparsity(net)
 test(epoch)
 
-remove_small_values(net, verbose=True)
+#remove_small_values(net, verbose=True)
 test(epoch)
