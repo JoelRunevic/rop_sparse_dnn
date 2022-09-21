@@ -16,6 +16,9 @@ from utils import progress_bar
 
 from sparse_functions import *
 
+# import EarlyStopping
+from pytorchtools import EarlyStopping
+
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -27,6 +30,7 @@ parser.add_argument('--layer' , action='store_true', help='use layer pruning')
 parser.add_argument('--filter', action ='store_true', help='prune entire filters')
 parser.add_argument('--cifar100', action ='store_true', help='use cifar10')
 parser.add_argument('--net', default='resnet18',  help='network')
+parser.add_argument('--svd', default = -1, type=int, help='epoch to apply svd')
 
 args = parser.parse_args()
 
@@ -118,19 +122,31 @@ optimizer = optim.SGD(net.parameters(), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
-#Pruning
-if args.p:
-	print("Prune percent: {}".format(args.p))
-	
-prune_percentages = np.arange(10, rounddown(args.p)+10, 10)
-prune_epochs = np.arange(10, rounddown(args.p)+10, 10)
-#handle last pruning stage
-if args.p%10 != 0:
-  prune_percentages = np.append(prune_percentages, args.p)#[10, 20, 30, 40, 50, 60, 70]                          
-  prune_epochs = np.append(prune_epochs, roundup(args.p))	
-#prune_percentages = np.arange(10, args.p+10, 10) #[10, 20, 30, 40, 50, 60, 70]
-#prune_epochs = np.arange(10, args.p+10, 10)
-#prune_epochs[0] = 0 # = [10, 20, 30, 40, 50, 60, 70]
+patience = 15
+# initialize the early_stopping object
+early_stopping = EarlyStopping(patience=patience, verbose=True)
+
+has_stopped = False
+
+def get_pruning_config(epoch=10, iters = 10):
+    global args
+    #Pruning
+    if args.p:
+            print("Prune percent: {}".format(args.p))
+
+    prune_percentages = np.arange(10, rounddown(args.p)+10, 10)
+    prune_epochs = np.arange(epoch, epoch + round(args.p/ 10)*iters, iters)
+    #handle last pruning stage
+    if args.p%10 != 0:
+      prune_percentages = np.append(prune_percentages, args.p)#[10, 20, 30, 40, 50, 60, 70]                          
+      prune_epochs = np.append(prune_epochs, roundup(args.p))	
+    #prune_percentages = np.arange(10, args.p+10, 10) #[10, 20, 30, 40, 50, 60, 70]
+    #prune_epochs = np.arange(10, args.p+10, 10)
+    #prune_epochs[0] = 0 # = [10, 20, 30, 40, 50, 60, 70]
+    return prune_epochs, prune_percentages
+
+
+prune_epochs, prune_percentages = get_pruning_config(10, 10)
 curr_prune_stage = 0
 print(prune_epochs)
 print(prune_percentages)
@@ -139,6 +155,9 @@ print(prune_percentages)
 # Training
 def train(epoch):
     global curr_prune_stage
+    global has_stopped
+    global prune_epochs
+    global prune_percentages
     print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
@@ -160,8 +179,12 @@ def train(epoch):
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                      % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
-    if epoch in prune_epochs:
+    if args.svd == epoch:
+        print("applying svd")
+        svd_pruning(net, 50)
+    if (epoch in prune_epochs) and (has_stopped is True):
         print('Pruning Stage {}'.format(curr_prune_stage))
+
         if args.layer:
             smallest_magnitude_pruning(net, prune_percentages[curr_prune_stage])
         if args.rop:
@@ -175,6 +198,9 @@ def train(epoch):
 
 def test(epoch):
     global best_acc
+    global has_stopped
+    global prune_epochs
+    global prune_percentages
     net.eval()
     test_loss = 0
     correct = 0
@@ -192,6 +218,19 @@ def test(epoch):
 
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+
+    # early_stopping needs the validation loss to check if it has decresed, 
+    # and if it has, it will make a checkpoint of the current model
+    if has_stopped ==  False and args.svd == -1:
+        early_stopping(test_loss, net)
+
+    # epoch == 0 or 
+    if early_stopping.early_stop and has_stopped == False:
+        print("Early stopping")
+        svd_pruning(net, 70, True)
+        prune_epochs, prune_percentages = get_pruning_config(epoch+2, 5)
+        print(epoch, prune_epochs, prune_percentages)
+        has_stopped = True
 
     # Save checkpoint.
     acc = 100.*correct/total
@@ -218,6 +257,7 @@ def test(epoch):
         else:
             torch.save(state, './checkpoint/ckpt_{}_{}_no_pruning.pth'.format(args.net, cifar))
         best_acc = acc
+
 
 for epoch in range(start_epoch, start_epoch+200):
     train(epoch)

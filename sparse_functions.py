@@ -176,3 +176,38 @@ def struct_pruning(net, prune_percent, verbose=True):
             sparsity = 100.0 * (1 - (num_nonzero / num_total))
             print('Layer {} ({}): {}% sparse'.format(i, layer.weight.shape,
                                                      sparsity))
+def gap(s):
+  indx = 0
+  gap = 0
+  for i in range(int(len(s)/4), len(s)-1):
+    if s[i] - s[i+1] > gap:
+      gap = s[i] - s[i+1]
+      indx = i
+  return gap, indx
+
+def svd_pruning(net, prune_percent, strict_prune_amount = False, verbose=True):
+    for i, layer in enumerate(get_sparse_conv2d_layers(net)):
+        w = layer.weight.cpu().detach().numpy()
+        weight_matrix = w.reshape(w.shape[0], -1)
+
+        u, s, vh = np.linalg.svd(weight_matrix, full_matrices=False)
+        if strict_prune_amount:
+            s[get_indices_of_k_smallest(s, int(len(s)*prune_percent*0.01))] = 0
+        else:
+            gap_distance, pos = gap(s)
+            print("Gap {}, pos {}, len of s {}".format(gap_distance, pos, len(s)))
+            print(s)
+            s[pos+1:] = 0
+        #s[get_indices_of_k_smallest(s, int(len(s)*prune_percent*0.01))] = 0
+        #print(s)
+        #print(u.shape, s.shape, vh.shape)
+        #if np.count_nonzero(s) == len(s):
+        #    val = np.nanmin(s[s!=0])
+        #    s[s==val] = 0
+        #if vh.shape != np.diag(s).shape:
+        
+        weight_matrix =  u.dot(np.diag(s).dot(vh))
+
+        w = weight_matrix.reshape(w.shape)
+        layer._weight = nn.Parameter(torch.tensor(w).float().cuda())
+        

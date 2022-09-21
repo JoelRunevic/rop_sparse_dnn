@@ -15,6 +15,7 @@ from models import *
 from utils import progress_bar
 from BFP_quantized import *
 from new_bfp_quantize import *
+from column_pruning import *
 #from main import test
 
 from sparse_functions import *
@@ -204,11 +205,14 @@ epoch = 0
 for layer in get_sparse_conv2d_layers(net):
     #qweight = BFP_quantize(layer.weight, exponent_bit=4, mantissa_bit=8, group_size=4, category='WGT',  partition='channel', max_exp=0, min_exp=-15)
     qweight = bfp_quantize_weights(layer.weight.detach().cpu(), 4,4, 8)
+    #qweight = layer.weight.detach()
+    qweight = column_prune_weights(qweight.cpu(), 4, 4, 0.25)
     #print(qweight.size())
     #print(layer.weight.size())
     #print(layer.weight)
     
-    layer._weight = nn.Parameter(qweight.float())
+    #layer._weight = nn.Parameter(qweight.float())
+    layer._weight = nn.Parameter(torch.tensor(qweight).float().cuda())
     
 
 

@@ -42,6 +42,9 @@ def init_params(net):
             if m.bias:
                 init.constant(m.bias, 0)
 
+def get_indices_of_k_smallest(arr, k):
+    idx = np.argpartition(arr.ravel(), k)
+    return tuple(np.array(np.unravel_index(idx, arr.shape))[:, range(min(k, 0), max(k, 0))])
 
 _, term_width = os.popen('stty size', 'r').read().split()
 term_width = int(term_width)
