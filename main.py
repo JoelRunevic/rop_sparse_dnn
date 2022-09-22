@@ -30,6 +30,9 @@ parser.add_argument('--layer' , action='store_true', help='use layer pruning')
 parser.add_argument('--filter', action ='store_true', help='prune entire filters')
 parser.add_argument('--cifar100', action ='store_true', help='use cifar10')
 parser.add_argument('--net', default='resnet18',  help='network')
+
+parser.add_argument('--es', action='store_true', help='use early stopping')
+parser.add_argument('--t', default = 0, type=int, help='percent of sigma values to prune')
 parser.add_argument('--svd', default = -1, type=int, help='epoch to apply svd')
 
 args = parser.parse_args()
@@ -139,7 +142,7 @@ def get_pruning_config(epoch=10, iters = 10):
     #handle last pruning stage
     if args.p%10 != 0:
       prune_percentages = np.append(prune_percentages, args.p)#[10, 20, 30, 40, 50, 60, 70]                          
-      prune_epochs = np.append(prune_epochs, roundup(args.p))	
+      prune_epochs = np.append(prune_epochs, roundup(args.p))	# TODO fix to handle svd stuff
     #prune_percentages = np.arange(10, args.p+10, 10) #[10, 20, 30, 40, 50, 60, 70]
     #prune_epochs = np.arange(10, args.p+10, 10)
     #prune_epochs[0] = 0 # = [10, 20, 30, 40, 50, 60, 70]
@@ -227,7 +230,7 @@ def test(epoch):
     # epoch == 0 or 
     if early_stopping.early_stop and has_stopped == False:
         print("Early stopping")
-        svd_pruning(net, 70, True)
+        svd_pruning(net, 90, True)
         prune_epochs, prune_percentages = get_pruning_config(epoch+2, 5)
         print(epoch, prune_epochs, prune_percentages)
         has_stopped = True
