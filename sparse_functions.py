@@ -59,7 +59,7 @@ def get_prune_group(row, prune_percent):
     return idxs
 
 
-def rop_pruning(net, prune_percent, verbose=True, multi_prune = False):
+def rop_pruning(net, prune_percent, group_size, verbose=True, multi_prune = False):
     
     for i, layer in enumerate(get_sparse_conv2d_layers(net)):
         num_nonzero = layer._mask.sum().item()
@@ -84,7 +84,7 @@ def rop_pruning(net, prune_percent, verbose=True, multi_prune = False):
         #idxs = np.apply_along_axis(get_prune_group, 2, weight_npy, prune_percent)
         within_filter = False
         if True:
-            group_size = get_closest_split(weight_npy.shape[0], 18)
+            group_size = get_closest_split(weight_npy.shape[0], group_size)
             if group_size is None:
                 # Handle very small filters
                 group_size = weight_npy.shape[0]
