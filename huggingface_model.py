@@ -3,12 +3,54 @@ import timm
 import torch
 import copy 
 
+import torchvision
+import torchvision.transforms as transforms
+
 from custom_utils import * 
 
 # Pretrained ResNet 18 model.
 model = timm.create_model("resnet18_cifar100", pretrained=True)
-num_classes = 100
+
 device = get_device()
+
+# Testing the model on CIFAR-100 dataset without training.
+model.eval()
+model.to(device)
+
+
+# Getting the dataset.
+transform_test = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+]) 
+
+
+testset = torchvision.datasets.CIFAR100(
+    root='./data', train=False, download=True, transform=transform_test)
+testloader = torch.utils.data.DataLoader(
+    testset, batch_size=100, shuffle=False, num_workers=2)
+
+
+def get_test_accuracy(model, testloader):
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data in testloader:
+            images, labels = data
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    return correct / total
+
+init_test_acc = get_test_accuracy(model, testloader)
+print(f"Initial test accuracy: {init_test_acc}")
+
+
+num_classes = 100
+
 dt_string = "14_04_2024:16:38:07"
 
 
@@ -28,7 +70,9 @@ def replace_conv_with_sparse(model):
                                                 stride, padding, None, False)
 
                 # Copy weights and bias (if exists).
-                new_sparse_layer.weight.data.copy_(layer.weight.data)
+
+                layer_weight_data = layer.weight.data.reshape(-1)
+                new_sparse_layer._weight.data.copy_(layer_weight_data)
                 if layer.bias is not None:
                     new_sparse_layer.bias.data.copy_(layer.bias.data)
 
@@ -41,6 +85,10 @@ def replace_conv_with_sparse(model):
 
 # Replacing the pretrained model conv layers with sparse conv layers.
 replace_conv_with_sparse(model)
+model = model.to(device)
+
+sparse_test_acc = get_test_accuracy(model, testloader)
+print(f"Sparse test accuracy: {sparse_test_acc}")
 
 # Saving the new model.
 torch.save(model.state_dict(), f'experiment_models/resnet18-cifar100-pretrained.pth')

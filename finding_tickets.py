@@ -7,6 +7,9 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 
+import detectors # this library is necessary for timm to load up the correct pretrained model.
+import timm 
+
 import torchvision
 import torchvision.transforms as transforms
 
@@ -36,6 +39,47 @@ def creating_network(device, num_classes):
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = True 
     return net 
+
+def replace_conv_with_sparse(model):
+    def _replace_recursively(model):
+        for name, layer in list(model.named_children()):  # Iterate over named modules
+            if isinstance(layer, nn.Conv2d):
+                in_channels = layer.in_channels
+                out_channels = layer.out_channels
+                kernel_size = (layer.kernel_size)[0]
+                stride = (layer.stride)[0] 
+                padding = (layer.padding)[0]
+
+                # Defining a sparse layer.
+                new_sparse_layer = SparseConv2d(in_channels, out_channels, kernel_size,
+                                                stride, padding, None, False)
+
+                # Copy weights and bias (if exists).
+                layer_weight_data = layer.weight.data.reshape(-1)
+                new_sparse_layer._weight.data.copy_(layer_weight_data)
+                if layer.bias is not None:
+                    new_sparse_layer.bias.data.copy_(layer.bias.data)
+
+                # Replace the original Conv2d layer
+                setattr(model, name, new_sparse_layer)
+            else:
+                _replace_recursively(layer)
+    
+    _replace_recursively(model)
+
+def create_pretrained_network(device):
+    # Getting the pre-trained weights.
+    model = timm.create_model("resnet18_cifar100", pretrained=True)
+    
+    # Replacing the conv layers with sparse conv layers.
+    replace_conv_with_sparse(model)
+
+    model = model.to(device)
+    if device == 'cuda':
+        model = torch.nn.DataParallel(model)
+        cudnn.benchmark = True
+    return model
+
 
 def get_network_sparsity(network):
     for i, layer in enumerate(get_sparse_conv2d_layers(network)):
@@ -205,6 +249,8 @@ if args.d:
     testloader = torch.utils.data.DataLoader(
         testset, batch_size=100, shuffle=False, num_workers=2)
     
+    print("Prepared CIFAR 10 data.\n")
+    
 else:
     trainset = torchvision.datasets.CIFAR100(
         root='./data', train=True, download=True, transform=transform_train)
@@ -216,17 +262,25 @@ else:
     testloader = torch.utils.data.DataLoader(
         testset, batch_size=100, shuffle=False, num_workers=2)
     
-    print("CIFAR100")
-
-print("Prepared the data.\n\n\n")
+    print("Prepared CIFAR 100 data.\n")
 
 
 # ##################################################################################################################
 
 # ####################################              PRUNING LOOP                ####################################
 
-net_to_prune = creating_network(device, num_classes)
+
+
+# CIFAR 10, so we randomly initialize the network as per usual.
+if args.d:
+    net_to_prune = creating_network(device, num_classes)
+
+# If CIFAR 100, then load the CIFAR 100 pretrained model.
+else:
+    net_to_prune = create_pretrained_network(device)
+
 torch.save(net_to_prune.state_dict(), f'experiment_states/initial_network_state_{dt_string}.pth')
+
 
 prune_percentages = np.arange(10, rounddown(args.p)+10, 10)
 prune_percentages = np.append(prune_percentages, args.p)
@@ -259,7 +313,13 @@ with open(f'experiment_lists/pruning_stats_{dt_string}.pkl', 'wb') as f:
 
 
 # ####################################           TRAINING INITIAL MODEL        ###################################
-initial_net_to_train = creating_network(device, num_classes)
+
+# For CIFAR 100 (i.e. args.d == False), we require to use a pretrained model.
+if args.d:
+    initial_net_to_train = creating_network(device, num_classes)
+else:
+    initial_net_to_train = create_pretrained_network(device)
+
 initial_network_state = torch.load(f'experiment_states/initial_network_state_{dt_string}.pth')
 initial_net_to_train.load_state_dict(initial_network_state)
 
@@ -279,8 +339,12 @@ with open(f'experiment_lists/training_initial_model_{dt_string}.pkl', 'wb') as f
 
 # ####################################           TRAINING PRUNED MODEL        ###################################
     
-# Loading the pruned model with mask.
-pruned_net_to_train = creating_network(device, num_classes)
+# Loading the pruned model with mask; pretrained network for CIFAR 100.
+if args.d:
+    pruned_net_to_train = creating_network(device, num_classes)
+else:
+    pruned_net_to_train = create_pretrained_network(device)
+
 pruned_network_state = torch.load(f'experiment_models/pruned_model_{dt_string}.pth')
 pruned_net_to_train.load_state_dict(pruned_network_state)
 

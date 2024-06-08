@@ -9,6 +9,8 @@ import torch.optim as optim
 from pytorchtools import EarlyStopping
 
 import copy 
+import detectors # needed for the timm library.
+import timm
 
 # Just a file of util functions that I often use.
 
@@ -23,6 +25,46 @@ def creating_network(device, num_classes):
         net = torch.nn.DataParallel(net)
         cudnn.benchmark = True 
     return net    
+
+def replace_conv_with_sparse(model):
+    def _replace_recursively(model):
+        for name, layer in list(model.named_children()):  # Iterate over named modules
+            if isinstance(layer, nn.Conv2d):
+                in_channels = layer.in_channels
+                out_channels = layer.out_channels
+                kernel_size = (layer.kernel_size)[0]
+                stride = (layer.stride)[0] 
+                padding = (layer.padding)[0]
+
+                # Defining a sparse layer.
+                new_sparse_layer = SparseConv2d(in_channels, out_channels, kernel_size,
+                                                stride, padding, None, False)
+
+                # Copy weights and bias (if exists).
+                layer_weight_data = layer.weight.data.reshape(-1)
+                new_sparse_layer._weight.data.copy_(layer_weight_data)
+                if layer.bias is not None:
+                    new_sparse_layer.bias.data.copy_(layer.bias.data)
+
+                # Replace the original Conv2d layer
+                setattr(model, name, new_sparse_layer)
+            else:
+                _replace_recursively(layer)
+    
+    _replace_recursively(model)
+
+def create_pretrained_network(device, pretrained_flag = True):
+    # Getting the pre-trained weights.
+    model = timm.create_model("resnet18_cifar100", pretrained=True)
+    
+    # Replacing the conv layers with sparse conv layers.
+    replace_conv_with_sparse(model)
+
+    model = model.to(device)
+    if device == 'cuda':
+        model = torch.nn.DataParallel(model)
+        cudnn.benchmark = True
+    return model
 
 def get_sparse_conv2d_layers(net):
     '''
@@ -151,3 +193,5 @@ def test_iter(epoch, network, criterion, testloader, device):
     normalized_loss = test_loss / len(testloader)
     
     return acc, normalized_loss, epoch
+
+
